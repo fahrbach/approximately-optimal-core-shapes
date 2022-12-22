@@ -58,22 +58,22 @@ def read_tucker_decomposition_solve_result_from_file(filename):
             setattr(solve_result, key, value)
     return solve_result
 
-def compute_tucker_decomposition(X, core_shape, cache_path):
+def compute_tucker_decomposition(X, core_shape, output_path, trial=0):
     """
     Computes Tucker decomposition of `X` with `core_shape`, and caches result.
 
     Args:
         X: Arbitrary tensor of type `np.ndarray`.
         core_shape: List of integers that is the same dimension as `X`.
-        cache_path: Path where Tucker decompositions for `X` are cached.
-
-    Notes:
-        - `cache_path` must not contain a '_' character.
-        - Example: Writes solve result to `cache_path/rank-10-10-10.txt`.
+        output_path: Path where Tucker decompositions for `X` are cached.
     """
-    assert '_' not in cache_path
-    filename = cache_path + '/'
-    filename += 'rank-' + '-'.join([str(_) for _ in core_shape])
+
+    assert output_path[-1] == '/'
+    output_path += 'tucker-decomposition-solve-results/'
+
+    filename = output_path
+    filename += 'rank-' + '-'.join([str(_) for _ in core_shape]) + '_'
+    filename += 'trial-' + str(trial)
     filename += '.txt'
 
     if os.path.exists(filename):
@@ -90,7 +90,7 @@ def compute_tucker_decomposition(X, core_shape, cache_path):
     solve_result.init = 'random'
     solve_result.n_iter_max = 20
     solve_result.tol = 1e-20
-    solve_result.random_state = 0
+    solve_result.random_state = trial
     start_time = time.time()
     core, factors = tensorly.decomposition.tucker(X, rank=core_shape,
                                                   init=solve_result.init,
@@ -105,7 +105,7 @@ def compute_tucker_decomposition(X, core_shape, cache_path):
     solve_result.rre = rre
     solve_result.solve_time_seconds = end_time - start_time
 
-    if not os.path.exists(cache_path):
-        os.makedirs(cache_path)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
     write_dataclass_to_file(solve_result, filename)
     return solve_result

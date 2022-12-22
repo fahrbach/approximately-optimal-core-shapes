@@ -71,42 +71,90 @@ def create_pareto_curve():
 def compare_core_shape_solvers():
     handler = TensorDataHandler()
 
-    # good budgets: range(1000, 32000 + 1, 1000)
+    # Good range: [4000, 100000]
+    #budgets = list(range(4000, 100000 + 1, 2000))
+    budgets = list(range(4000, 64000 + 1, 2000))
     X = handler.load_cardiac_mri()
     output_path = handler.output_path
 
-    # min_budget: range(3000, 64000 + 1, 2000)
+    #budgets = list(range(4000, 100000 + 1, 2000))
+    #budgets = list(range(4000, 20000 + 1, 1000))
     #X = handler.load_hyperspectral()
     #output_path = handler.output_path
 
+    # Good range: [8000, 64k, by 1000]
+    #budgets = list(range(8000, 20000 + 1, 1000))
     #X = handler.load_coil_100()
-    #cache_path = 'output/coil-100'
+    #output_path = handler.output_path
+
+    #budgets = list(range(1000, 50000, 1000))
+    #X = handler.generate_random_tucker([100, 100, 100], [16, 32, 64], 1234)
+    #output_path = handler.output_path
+
+    # Note: Not very interesting. Too easy to solve.
+    #budgets = list(range(3000, 100000, 1000))
+    #X = handler.load_image('data/images/cat.jpg', resize_shape=[1000, 1000])
+    #output_path = handler.output_path
 
     print('X.shape:', X.shape)
     print('X.size:', X.size)
     print('output_path:', output_path)
 
-    budgets = list(range(4000, 100000 + 1, 2000))
-    algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force']
-    markers = ['.', '+', 'x']
-    solve_results = []
+    algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force', 'rre-greedy']
+    #algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force']
+    markers = ['.', '+', 'x', '.']
+    linestyles = ['solid', 'solid', 'solid', 'dashed']
+    core_shape_solve_results = []
+    tucker_decomposition_solve_results = []
     for algorithm in algorithms:
-        solve_results.append(compute_core_shapes(X, budgets, algorithm, output_path))
+        print('algorithm:', algorithm)
+        core_shape_solve_results.append(compute_core_shapes(X, budgets, algorithm, output_path))
+        # Run Tucker decomposition for each (budget, core_shape) found by this algorithm.
+        tmp = []
+        for core_shape_result in core_shape_solve_results[-1]:
+            core_shape = core_shape_result.core_shape
+            print(' - core_shape:', core_shape)
+            tmp.append(compute_tucker_decomposition(X, core_shape, output_path))
+        tucker_decomposition_solve_results.append(tmp)
+
+    # --------------
 
     # Plot prefix sums of two methods (squared singular values)
     for i in range(len(algorithms)):
-        prefix_sums = np.array([result.hosvd_prefix_sum for result in solve_results[i]])
-        plt.plot(budgets, prefix_sums, marker=markers[i], label=algorithms[i])
+        #x = np.array([result.compression_ratio for result in core_shape_solve_results[i]])
+        x = np.array([result.num_tucker_params for result in core_shape_solve_results[i]])
+        prefix_sums = np.array([result.hosvd_prefix_sum for result in core_shape_solve_results[i]])
+        plt.plot(x, prefix_sums, marker=markers[i], label=algorithms[i], linestyle=linestyles[i])
     plt.grid()
     plt.legend()
+    plt.title(output_path)
+    plt.xlabel('budget')
+    plt.ylabel('HOSVD packing')
+    plt.savefig(output_path + 'hosvd-packing.png', transparent=True, bbox_inches='tight', dpi=256)
     plt.show()
 
-    # Plot running times
+    # Plot prefix sums of two methods (squared singular values)
     for i in range(len(algorithms)):
-        solve_times = np.array([result.solve_time_seconds - result.hosvd_time_seconds for result in solve_results[i]])
-        plt.plot(budgets, solve_times, marker=markers[i], label=algorithms[i])
+        rres = np.array([result.rre for result in tucker_decomposition_solve_results[i]])
+        plt.plot(budgets, rres, marker=markers[i], label=algorithms[i], linestyle=linestyles[i])
     plt.grid()
     plt.legend()
+    plt.title(output_path)
+    plt.xlabel('budget')
+    plt.ylabel('RRE')
+    plt.savefig(output_path + 'rre.png', transparent=True, bbox_inches='tight', dpi=256)
+    plt.show()
+
+    # Plot running times (core shape solve)
+    for i in range(len(algorithms)):
+        solve_times = np.array([result.solve_time_seconds for result in core_shape_solve_results[i]])
+        plt.plot(budgets, solve_times, marker=markers[i], label=algorithms[i], linestyle=linestyles[i])
+    plt.grid()
+    plt.legend()
+    plt.title(output_path)
+    plt.xlabel('budget')
+    plt.ylabel('core shape solve time (s)')
+    plt.savefig(output_path + 'core-shape-solve-time.png', transparent=True, bbox_inches='tight', dpi=256)
     plt.show()
 
 def main():

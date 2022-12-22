@@ -23,7 +23,10 @@ class TensorDataHandler:
     def generate_random_tucker(self, shape, rank, random_state=1234):
         self.tensor = tl.random.random_tucker(shape, rank, full=True,
                 random_state=random_state)
-        self.output_path = 'output/random_tucker/'
+        self.output_path = 'output/random-tucker_'
+        self.output_path += 'shape-' + '-'.join([str(x) for x in shape]) + '_'
+        self.output_path += 'rank-' + '-'.join([str(x) for x in rank]) + '_'
+        self.output_path += 'seed-' + str(random_state) + '/'
         return self.tensor
 
     def generate_synthetic_shape(self, pattern='swiss', image_height=20,
@@ -39,7 +42,11 @@ class TensorDataHandler:
         if resize_shape:
             image = image.resize((resize_shape[0], resize_shape[1]), Image.ANTIALIAS)
         self.tensor = np.array(image) / 256
-        self.output_path = get_output_filename_prefix(input_filename)
+
+        self.output_path = 'output/'
+        self.output_path += input_filename.split('/')[-1].split('.')[0]
+        self.output_path += '_shape-' + '-'.join([str(x) for x in self.tensor.shape])
+        self.output_path += '/'
         return self.tensor
 
     def load_cardiac_mri(self):
@@ -49,7 +56,7 @@ class TensorDataHandler:
         """
         self.input_filename = 'data/cardiac-mri/sol_yxzt_pat1.mat'
         self.tensor = sio.loadmat(self.input_filename)['sol_yxzt'].astype(float)
-        self.output_path = 'output/cardiac-mri'
+        self.output_path = 'output/cardiac-mri/'
         return self.tensor
 
     def load_hyperspectral(self):
@@ -60,7 +67,7 @@ class TensorDataHandler:
         """
         self.input_filename = 'data/hyperspectral/nogueiro_1140.mat'
         self.tensor = sio.loadmat(self.input_filename)['hsi'].astype(float)
-        self.output_path = 'output/hyperspectral'
+        self.output_path = 'output/hyperspectral/'
         return self.tensor
 
     def load_coil_100(self):
