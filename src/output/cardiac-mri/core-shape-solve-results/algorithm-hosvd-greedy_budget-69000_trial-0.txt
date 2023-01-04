@@ -1,0 +1,12 @@
+date 2022-12-28T09:54:20.494554
+input_shape (256, 256, 14, 20)
+algorithm hosvd-greedy
+budget 69000
+trial 0
+core_shape [31, 39, 14, 3]
+num_tucker_params 68954
+compression_ratio 0.0037576947893415177
+hosvd_time_seconds 16.81156063079834
+solve_time_seconds 16.813819885253906
+hosvd_prefix_sum 1648715799032.9849
+hosvd_suffix_sum 11193648866.916016
