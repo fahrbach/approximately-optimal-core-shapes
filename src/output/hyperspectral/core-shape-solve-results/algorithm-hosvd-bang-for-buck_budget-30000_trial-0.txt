@@ -1,0 +1,12 @@
+date 2022-12-27T09:05:10.486830
+input_shape (1024, 1344, 33)
+algorithm hosvd-bang-for-buck
+budget 30000
+trial 0
+core_shape [14, 11, 4]
+num_tucker_params 29868
+compression_ratio 0.0006576472030573593
+hosvd_time_seconds 105.04888916015625
+solve_time_seconds 105.04952907562256
+hosvd_prefix_sum 134507.4855070357
+hosvd_suffix_sum 1709.2012644780043

@@ -1,0 +1,12 @@
+date 2023-01-02T08:54:50.684251
+input_shape (1024, 1344, 33)
+core_shape (13, 3, 18)
+num_tucker_params 18640
+compression_ratio 0.00041042399440836943
+loss 1911.0413236419697
+rre 0.04208826471121919
+solve_time_seconds 65.50758695602417
+init random
+n_iter_max 20
+tol 1e-20
+random_state 0
