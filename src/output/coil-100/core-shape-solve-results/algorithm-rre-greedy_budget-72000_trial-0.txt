@@ -1,0 +1,12 @@
+date 2022-12-25T08:26:43.577473
+input_shape (7200, 128, 128, 3)
+algorithm rre-greedy
+budget 72000
+trial 0
+core_shape [9, 14, 10, 3]
+num_tucker_params 71661
+compression_ratio 0.00020249260796440972
+hosvd_time_seconds 0.0
+solve_time_seconds 20125.47020983696
+hosvd_prefix_sum 162747406.03283402
+hosvd_suffix_sum 7013792.177976966
