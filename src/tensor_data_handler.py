@@ -14,6 +14,7 @@ def get_output_filename_prefix(input_filename):
     output_filename_prefix = '/'.join(tokens)
     return output_filename_prefix.split('.')[0]
 
+# Rename to TensorDataLoader
 class TensorDataHandler:
     def __init__(self):
         self.input_filename = None
@@ -70,10 +71,32 @@ class TensorDataHandler:
         self.output_path = 'output/hyperspectral/'
         return self.tensor
 
+    def load_hands(self):
+        """
+        shape: (60, 80, 30, 900)
+        size: 129,600,000
+        https://labicvl.github.io/ges_db.htm
+        """
+        assert False
+
+    def load_traffic(self):
+        """
+        shape: (1084, 2033, 96)
+        size: 211,562,112
+
+        Paper: "Traffic forecasting in complex urban networks: Leveraging big data and machine learning"
+        Source: https://github.com/florinsch/BigTrafficData
+        """
+
+        self.input_filename = 'data/traffic/VolumeData_tensor.mat'
+        self.tensor = sio.loadmat(self.input_filename)['data'].astype(float)
+        self.output_path = 'output/traffic/'
+        return self.tensor
+
     def load_coil_100(self):
         """
-        shape: (7200, 120, 120, 3)
-        size: 311,040,000
+        shape: (7200, 128, 128, 3)
+        size: 353,894,400
         """
         path = 'data/coil-100'
         image_files = []

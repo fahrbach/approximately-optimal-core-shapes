@@ -355,6 +355,35 @@ def compute_core_shape_hosvd_bang_for_buck(X, unfolded_squared_singular_values, 
     solve_result.hosvd_suffix_sum -= singular_sum
     return solve_result
 
+def recurse(X, unfolded_squared_singular_values, budget, core_shape):
+    N = len(X.shape)
+    best_s = -1
+    best_core_shape = None
+
+    if len(core_shape) == N:
+        print(' - candidate:', core_shape)
+        s = 0.0
+        for n in range(N):
+            s += sum(unfolded_squared_singular_values[n][:core_shape[n]])
+        return s, tuple(core_shape)
+
+    n = len(core_shape)
+    for i in range(1, X.shape[n] + 1):
+        new_core_shape = copy.deepcopy(core_shape)
+        new_core_shape.append(i)
+        new_core_shape_tmp = copy.deepcopy(new_core_shape)
+        while len(new_core_shape_tmp) < N:
+            new_core_shape_tmp.append(1)
+        num_params = get_num_tucker_params(X, new_core_shape_tmp)
+        if num_params > budget:
+            break
+        # Process good core shape candidate
+        tmp_best_s, tmp_best_core_shape = recurse(X, unfolded_squared_singular_values, budget, new_core_shape)
+        if tmp_best_s > best_s:
+            best_s = tmp_best_s
+            best_core_shape = tmp_best_core_shape
+    return best_s, best_core_shape
+
 # TODO(fahrbach): Write O(B^2) DP algorithm for this packing problem?
 def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, budget):
     """
@@ -363,9 +392,26 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
     start_time = time.time()
 
     N = len(X.shape)
+    core_shape = []
+    best_singular_sum, best_core_shape = recurse(X, unfolded_squared_singular_values, budget, core_shape)
+    print(budget, '-->', best_singular_sum, best_core_shape)
+
+    """
+    N = len(X.shape)
     best_singular_sum = -1
     best_core_shape = []
-    if N == 3:
+    if N == 2:
+        for i0 in range(1, X.shape[0] + 1):
+            if get_num_tucker_params(X, [i0, 1]) > budget: break
+            for i1 in range(1, X.shape[1] + 1):
+                if get_num_tucker_params(X, [i0, i1]) > budget: break
+                s = 0.0
+                s += sum(unfolded_squared_singular_values[0][:i0])
+                s += sum(unfolded_squared_singular_values[1][:i1])
+                if s > best_singular_sum:
+                    best_singular_sum = s
+                    best_core_shape = [i0, i1]
+    elif N == 3:
         for i0 in range(1, X.shape[0] + 1):
             if get_num_tucker_params(X, [i0, 1, 1]) > budget: break
             for i1 in range(1, X.shape[1] + 1):
@@ -398,6 +444,8 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
                             best_core_shape = [i0, i1, i2, i3]
     else:
         assert False
+    """
+
     end_time = time.time()
 
     solve_result = CoreShapeSolveResult()
