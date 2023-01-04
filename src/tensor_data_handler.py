@@ -21,6 +21,14 @@ class TensorDataHandler:
         self.tensor = None
         self.output_path = None
 
+    def make_random_tensor(self, shape, seed=0):
+        np.random.seed(seed)
+        self.tensor = np.random.random_sample(shape)
+        self.output_path = 'output/random-tensor_'
+        self.output_path += 'shape-' + '-'.join([str(x) for x in shape]) + '_'
+        self.output_path += 'seed-' + str(seed) + '/'
+        return self.tensor
+
     def generate_random_tucker(self, shape, rank, random_state=1234):
         self.tensor = tl.random.random_tucker(shape, rank, full=True,
                 random_state=random_state)

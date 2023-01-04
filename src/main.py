@@ -97,9 +97,9 @@ def compare_core_shape_solvers():
     #X = handler.generate_random_tucker([10, 10, 10, 10], [2, 3, 4, 5], 1234)
     #output_path = handler.output_path
 
-    budgets = list(range(500, 100000 + 1, 1000))
-    X = np.random.rand(10, 10, 10, 10, 10, 10, 10)
-    output_path = 'output/random-tensor/'
+    budgets = list(range(1000, 10000 + 1, 1000))
+    X = handler.make_random_tensor((100, 100, 100), seed=0)
+    output_path = handler.output_path
 
     # Note: Not very interesting. Too easy to solve.
     #budgets = list(range(3000, 100000, 1000))
@@ -110,8 +110,8 @@ def compare_core_shape_solvers():
     print('X.size:', X.size)
     print('output_path:', output_path)
 
-    #algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force', 'rre-greedy']
-    algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force']
+    algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force', 'rre-greedy']
+    #algorithms = ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force']
     markers = ['x', '+', '.', '.']
     linestyles = ['solid', 'solid', 'solid', 'dashed']
     core_shape_solve_results = []
