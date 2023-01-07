@@ -541,7 +541,6 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
     if besti == -1:
         best_core_shape = best_result.core_shape
     else:
-        best_singular_sum += np.sum(unfolded_squared_singular_values[besti][:(bestj+1)])
         best_core_shape = np.zeros(N,dtype=np.int)
         best_core_shape[besti] = bestj
         if besti > 0:
