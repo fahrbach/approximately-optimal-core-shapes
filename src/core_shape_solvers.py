@@ -243,7 +243,7 @@ def compute_core_shapes(X, budgets, algorithm, output_path, trial=0):
         elif algorithm == 'hosvd-brute-force':
             solve_result = compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, budget)
         elif algorithm == 'hosvd-ip':
-            solve_result = compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, 0.5)
+            solve_result = compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget)
         elif algorithm == 'rre-greedy':
             solve_result = compute_core_shape_rre_greedy(X, unfolded_squared_singular_values, budget, output_path, trial)
         else:
@@ -475,7 +475,7 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
     return solve_result
 
 
-def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, eps=0.5):
+def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, eps=1.0):
     start_time = time.time()
 
     N = len(X.shape)
