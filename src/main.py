@@ -4,6 +4,8 @@ from tucker_decomposition_solver import *
 
 import numpy as np
 import tensorly
+import scipy
+import sparse
 import tensorly.decomposition
 import matplotlib.pyplot as plt
 import os

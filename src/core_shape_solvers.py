@@ -1,10 +1,14 @@
 from tensor_data_handler import TensorDataHandler
 from tucker_decomposition_solver import *
 from tucker_decomposition_utils import *
+from scipy.optimize import milp
+from scipy.optimize import LinearConstraint
 
 import copy
 import numpy as np
+import scipy
 import tensorly
+import sparse
 import tensorly.decomposition
 import matplotlib.pyplot as plt
 
@@ -183,7 +187,10 @@ def get_all_unfolded_squared_singular_values(X):
     N = len(X.shape)
     singular_values = []
     for n in range(N):
-        X_n = tensorly.base.unfold(X, n)
+        if isinstance(X, sparse.COO):
+            X_n = sparse_unfold(X, n)
+        else:
+            X_n = tensorly.base.unfold(X, n)
         Sigma_n = np.linalg.svd(X_n, full_matrices=False, compute_uv=False)
         Sigma_n = Sigma_n**2
         singular_values.append(tuple(Sigma_n))
@@ -200,7 +207,7 @@ def compute_core_shapes(X, budgets, algorithm, output_path, trial=0):
         - trial: Used to mark separate runs and averaging.
     """
 
-    assert algorithm in ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force', 'rre-greedy']
+    assert algorithm in ['hosvd-greedy', 'hosvd-bang-for-buck', 'hosvd-brute-force', 'hosvd-ip', 'rre-greedy']
     assert output_path[-1] == '/'
     core_shape_output_path = output_path + 'core-shape-solve-results/'
     
@@ -235,6 +242,8 @@ def compute_core_shapes(X, budgets, algorithm, output_path, trial=0):
             solve_result = compute_core_shape_hosvd_bang_for_buck(X, unfolded_squared_singular_values, budget)
         elif algorithm == 'hosvd-brute-force':
             solve_result = compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, budget)
+        elif algorithm == 'hosvd-ip':
+            solve_result = compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, 1)
         elif algorithm == 'rre-greedy':
             solve_result = compute_core_shape_rre_greedy(X, unfolded_squared_singular_values, budget, output_path, trial)
         else:
@@ -464,6 +473,172 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
         solve_result.hosvd_suffix_sum += sum(unfolded_squared_singular_values[n])
     solve_result.hosvd_suffix_sum -= best_singular_sum
     return solve_result
+
+
+def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, eps):
+    start_time = time.time()
+
+    N = len(X.shape)
+
+    temp_shape = np.zeros(N,dtype=np.int)
+
+    sq_sing_vals = [[] for i in range(N)]
+
+    for i in range(N):
+        temp_shape[i] = np.minimum(np.ceil(1/eps),X.shape[i],dtype=np.int,casting="unsafe")
+        sq_sing_vals[i] = unfolded_squared_singular_values[i][:temp_shape[i]]
+
+    best_result = compute_core_shape_hosvd_brute_force(sparse.zeros(tuple(temp_shape), format='coo'), sq_sing_vals, budget)
+    best_singular_sum = best_result.hosvd_prefix_sum
+    besti = -1
+    bestj = -1
+
+    for i in range(int(np.ceil(np.log(budget)/np.log(1+eps)))):
+        for j in range(np.maximum(int(np.floor(np.ceil(1/eps) / (1+eps))),1,dtype=int,casting="unsafe"), X.shape[i] + 1):
+            b_prod = np.power(1+eps, i) / j
+            b_sum = budget - b_prod - X.shape[i] * j
+            Xtemp_shape = np.zeros(N-1,dtype=np.int)
+            counter = 0
+            sq_sing_vals = [[] for i in range(len(Xtemp_shape))]
+            for k in range(N):
+                if i == k:
+                    continue
+                Xtemp_shape[counter] = X.shape[k]
+                sq_sing_vals[counter] = unfolded_squared_singular_values[k]
+                counter += 1
+            temp_result = compute_core_shape_hosvd_ip_double_budget(sparse.zeros(tuple(Xtemp_shape)), sq_sing_vals, b_prod, b_sum)
+            if temp_result.hosvd_prefix_sum > best_singular_sum:
+                best_result = temp_result
+                besti = i
+                bestj = j
+                best_singular_sum = best_result.hosvd_prefix_sum
+
+
+    if besti == -1:
+        best_core_shape = best_result.core_shape
+    else:
+        best_singular_sum += np.sum(unfolded_squared_singular_values[besti][:(bestj+1)])
+        best_core_shape = np.zeros(N,dtype=np.int)
+        best_core_shape[besti] = bestj
+        if besti > 0:
+            best_core_shape[:besti] = best_result.core_shape[:besti]
+        if besti < N - 1:
+            best_core_shape[(besti+1):] = best_result.core_shape[besti:]
+
+    print(budget, '-->', best_singular_sum, tuple(best_core_shape))
+
+    end_time = time.time()
+
+    solve_result = CoreShapeSolveResult()
+    solve_result.input_shape = X.shape
+    solve_result.algorithm = 'hosvd-ip'
+    solve_result.budget = budget
+    solve_result.core_shape = best_core_shape
+    solve_result.num_tucker_params = get_num_tucker_params(X, best_core_shape)
+    solve_result.compression_ratio = solve_result.num_tucker_params / X.size
+
+    solve_result.solve_time_seconds = end_time - start_time
+
+    solve_result.hosvd_prefix_sum = best_singular_sum
+    solve_result.hosvd_suffix_sum = 0.0
+    for n in range(N):
+        solve_result.hosvd_suffix_sum += sum(unfolded_squared_singular_values[n])
+    solve_result.hosvd_suffix_sum -= best_singular_sum
+    return solve_result
+
+def compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_values, budget_prod, budget_sum):
+    """
+    Solve an integer-linear program to find the best shape acccording to HOSVD
+    """
+    start_time = time.time()
+
+    N = len(X.shape)
+    
+    col_num = 0;
+    for i in range(N):
+        col_num += X.shape[i]
+
+    A = np.zeros((N+2, col_num))
+    c = np.zeros(col_num)
+    bu = np.zeros(N+2)
+    bl = np.zeros(N+2)
+    best_core_shape = np.zeros(N, dtype=np.int)
+
+    col_count = 0
+    bu[0] = np.log(budget_prod)
+    bu[1] = budget_sum
+
+    for i in range(N):
+        prefix_sum = 0
+        bu[2+i] = 1
+        bl[2+i] = 1
+        for j in range(X.shape[i]):
+            c[col_count+j] = prefix_sum + unfolded_squared_singular_values[i][j]
+            prefix_sum = c[col_count+j]
+            A[0, col_count+j] = np.log(j+1)
+            A[1, col_count+j] = X.shape[i] * (j+1)
+            A[2+i, col_count+j] = 1
+
+        col_count += X.shape[i]
+
+    constraints = LinearConstraint(A, bl, bu)
+    res = milp(c=-c, constraints=constraints, integrality=np.ones_like(c))
+
+    if res.x is None:
+        solve_result = CoreShapeSolveResult()
+        solve_result.hosvd_prefix_sum = 0
+        return solve_result
+
+    best_singular_sum = 0
+    col_count = 0
+    for i in range(N):
+        for j in range(X.shape[i]):
+            if res.x[col_count+j] > 0.9:
+                best_singular_sum += np.sum(unfolded_squared_singular_values[i][:(j+1)])
+                best_core_shape[i] = int(j + 1)
+
+        col_count += X.shape[i]
+
+    print(budget_prod + budget_sum, '-->', best_singular_sum, tuple(best_core_shape))
+
+    end_time = time.time()
+
+    solve_result = CoreShapeSolveResult()
+    solve_result.input_shape = X.shape
+    solve_result.algorithm = 'hosvd-ip-double-budget'
+    solve_result.budget = budget_prod + budget_sum
+    solve_result.core_shape = best_core_shape
+    solve_result.num_tucker_params = get_num_tucker_params(X, best_core_shape)
+    solve_result.compression_ratio = solve_result.num_tucker_params / X.size
+
+    solve_result.solve_time_seconds = end_time - start_time
+
+    solve_result.hosvd_prefix_sum = best_singular_sum
+    solve_result.hosvd_suffix_sum = 0.0
+    for n in range(N):
+        solve_result.hosvd_suffix_sum += sum(unfolded_squared_singular_values[n])
+    solve_result.hosvd_suffix_sum -= best_singular_sum
+    return solve_result
+
+
+def sparse_unfold(X, n):
+    coords = X.coords.T
+
+    temp_coords = np.zeros((coords.shape[0], coords.shape[1] - 1))
+    if n > 0:
+        temp_coords[:, 0:n] = coords[:, 0:n]
+    if n < len(X.shape) - 1:
+        temp_coords[:, n:] = coords[:, (n+1):]
+
+    rows = np.unique(temp_coords, axis=0)
+    mat = np.zeros((rows.shape[0], X.shape[n]))
+
+    for i in range(coords.shape[0]):
+        row_ind = np.where(np.logical_and.reduce(np.equal(rows,temp_coords[i]),axis=1)==True)[0][0]
+        mat[row_ind, coords[i, n]] = X.data[i]
+
+    return mat
+
 
 """
 Note: Very good experimental setup:

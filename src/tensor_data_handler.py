@@ -1,9 +1,13 @@
 import numpy as np
+import csv
 from PIL import Image
 import tensorly as tl
 import scipy.io as sio
 import skvideo.io
 from os import walk
+import sparse
+from tensorly.contrib.sparse import tensor as stensor
+from tensorly.contrib.sparse import unfold as sunfold
 
 # TODO(fahrbach): Include input and output paths for each tensor.
 
@@ -131,4 +135,30 @@ class TensorDataHandler:
         self.tensor = skvideo.io.vread(input_filename)
         print('video shape:', self.tensor.shape)
         self.output_path = get_output_filename_prefix(input_filename)
+        return self.tensor
+        
+        
+    # https://archive.ics.uci.edu/ml/datasets/Mushroom
+    def load_mushroom(self):
+        """
+        shape: (6, 4, 10, 2, 9, 2, 2, 2, 12, 2, 5, 4, 4, 9, 9, 1, 4, 3, 5, 9, 6, 7)
+        array_size: (8124, 23)
+        label: binary in first column
+        """
+        self.input_filename = 'data/mushroom.csv'
+        with open(self.input_filename) as csvfile:
+            reader = csv.reader(csvfile, delimiter=',')
+            data = np.zeros((8124, 23))
+            counter = 0
+            for row in reader:
+                data[counter, :] = row
+                counter += 1
+
+        shape = [0] * (data.shape[1] - 1)
+        for i in range(len(shape)):
+            shape[i] = len(set(data[:, i+1]))
+        coords = (data[:, 1:] - 1).astype(int)
+        vals = (data[:, 0] - 1.5) * 2
+        X = sparse.COO(coords.T, vals, shape=tuple(shape))
+        self.tensor = stensor(X, dtype='float')
         return self.tensor
