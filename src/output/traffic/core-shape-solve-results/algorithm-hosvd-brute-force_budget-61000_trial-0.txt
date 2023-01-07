@@ -1,0 +1,12 @@
+date 2023-01-04T21:49:33.916145
+input_shape (1084, 2033, 96)
+algorithm hosvd-brute-force
+budget 61000
+trial 0
+core_shape (22, 9, 64)
+num_tucker_params 60961
+compression_ratio 0.00028814705725758685
+hosvd_time_seconds 610.4040312767029
+solve_time_seconds 611.0068070888519
+hosvd_prefix_sum 27407593176665.242
+hosvd_suffix_sum 669297777485.1875
