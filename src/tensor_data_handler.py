@@ -7,7 +7,6 @@ import skvideo.io
 from os import walk
 import sparse
 from tensorly.contrib.sparse import tensor as stensor
-from tensorly.contrib.sparse import unfold as sunfold
 
 # TODO(fahrbach): Include input and output paths for each tensor.
 
@@ -161,4 +160,5 @@ class TensorDataHandler:
         vals = (data[:, 0] - 1.5) * 2
         X = sparse.COO(coords.T, vals, shape=tuple(shape))
         self.tensor = stensor(X, dtype='float')
+        self.output_path = 'output/mushroom/'
         return self.tensor
