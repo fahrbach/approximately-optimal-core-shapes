@@ -370,7 +370,6 @@ def recurse(X, unfolded_squared_singular_values, budget, core_shape):
     best_core_shape = None
 
     if len(core_shape) == N:
-        print(' - candidate:', core_shape)
         s = 0.0
         for n in range(N):
             s += sum(unfolded_squared_singular_values[n][:core_shape[n]])
@@ -404,56 +403,6 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
     core_shape = []
     best_singular_sum, best_core_shape = recurse(X, unfolded_squared_singular_values, budget, core_shape)
     print(budget, '-->', best_singular_sum, best_core_shape)
-
-    """
-    N = len(X.shape)
-    best_singular_sum = -1
-    best_core_shape = []
-    if N == 2:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1]) > budget: break
-                s = 0.0
-                s += sum(unfolded_squared_singular_values[0][:i0])
-                s += sum(unfolded_squared_singular_values[1][:i1])
-                if s > best_singular_sum:
-                    best_singular_sum = s
-                    best_core_shape = [i0, i1]
-    elif N == 3:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1, 1]) > budget: break
-                for i2 in range(1, X.shape[2] + 1):
-                    if get_num_tucker_params(X, [i0, i1, i2]) > budget: break
-                    s = 0.0
-                    s += sum(unfolded_squared_singular_values[0][:i0])
-                    s += sum(unfolded_squared_singular_values[1][:i1])
-                    s += sum(unfolded_squared_singular_values[2][:i2])
-                    if s > best_singular_sum:
-                        best_singular_sum = s
-                        best_core_shape = [i0, i1, i2]
-    elif N == 4:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1, 1, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1, 1, 1]) > budget: break
-                for i2 in range(1, X.shape[2] + 1):
-                    if get_num_tucker_params(X, [i0, i1, i2, 1]) > budget: break
-                    for i3 in range(1, X.shape[3] + 1):
-                        if get_num_tucker_params(X, [i0, i1, i2, i3]) > budget: break
-                        s = 0.0
-                        s += sum(unfolded_squared_singular_values[0][:i0])
-                        s += sum(unfolded_squared_singular_values[1][:i1])
-                        s += sum(unfolded_squared_singular_values[2][:i2])
-                        s += sum(unfolded_squared_singular_values[3][:i3])
-                        if s > best_singular_sum:
-                            best_singular_sum = s
-                            best_core_shape = [i0, i1, i2, i3]
-    else:
-        assert False
-    """
 
     end_time = time.time()
 
@@ -663,49 +612,4 @@ def sparse_unfold(X, n):
         mat[row_ind, coords[i, n]] = X.data[i]
 
     return mat
-
-
-"""
-Note: Very good experimental setup:
-  - dataset: hyperspectral
-  - budget: ~0.001 * X.size (~0.1% compression of original tensor)
-"""
-def main():
-    handler = TensorDataHandler()
-    input_shape = [20, 100, 200]
-    core_shape = [3, 7, 13]
-    random_seed = 123
-    #X = handler.generate_random_tucker(input_shape, core_shape, random_seed)
-    #X = handler.load_image('data/images/cat.jpg', resize_shape=(100, 200))
-    X = handler.load_hyperspectral()
-    #X = handler.load_cardiac_mri_data()
-    #X = handler.load_coil_100()
-    print(X.shape)
-    print(X.size)
-
-    budget = int(0.0001 * X.size)
-    print('budget:', budget)
-
-    core_shape, rre = compute_core_shape(X, budget, 'greedy-approx')
-    print('greedy_approx_core_shape:', core_shape)
-    print('greedy_approx_rre:', rre)
-    print()
-
-    """
-    core_shape, rre = compute_core_shape(X, budget, 'brute-force-approx')
-    print('brute_force_approx_core_shape:', core_shape)
-    print('brute_force_approx_rre:', rre)
-    print()
-
-    core_shape, rre = compute_core_shape(X, budget, 'greedy')
-    print('greedy_core_shape:', core_shape)
-    print('greedy_rre:', rre)
-    print()
-
-    core_shape, rre = compute_core_shape(X, budget, 'bang-for-buck')
-    print('bfb_core_shape:', core_shape)
-    print('bfb_rre:', rre)
-    """
-
-#main()
 
