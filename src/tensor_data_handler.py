@@ -145,7 +145,7 @@ class TensorDataHandler:
         array_size: (8124, 23)
         label: binary in first column
         """
-        self.input_filename = 'data/mushroom.csv'
+        self.input_filename = 'data/mushroom/mushroom.csv'
         with open(self.input_filename) as csvfile:
             reader = csv.reader(csvfile, delimiter=',')
             data = np.zeros((8124, 23))
