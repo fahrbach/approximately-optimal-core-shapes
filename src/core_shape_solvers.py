@@ -549,7 +549,8 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
         if besti < N - 1:
             best_core_shape[(besti+1):] = best_result.core_shape[besti:]
 
-    print(budget, '-->', best_singular_sum, tuple(best_core_shape))
+    best_core_shape = tuple(best_core_shape)
+    print(budget, '-->', best_singular_sum, best_core_shape)
 
     end_time = time.time()
 
