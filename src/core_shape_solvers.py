@@ -510,11 +510,11 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
                 b_prod /= j
 
                 temp_result = compute_core_shape_hosvd_ip_double_budget(sparse.zeros(tuple(Xtemp_shape)), sq_sing_vals, b_prod, b_sum)
-                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:(j+1)]) > best_singular_sum:
+                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j]) > best_singular_sum:
                     best_result = temp_result
                     besti = i
                     bestj = j
-                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:(j+1)])
+                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j])
 
     for k in range(int(np.floor(np.log(budget)/np.log(1+eps)))):
         for i in range(N):
@@ -532,11 +532,11 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
                 b_sum = np.power(1+eps, k) - X.shape[i] * j
 
                 temp_result = compute_core_shape_hosvd_ip_double_budget(sparse.zeros(tuple(Xtemp_shape)), sq_sing_vals, b_prod, b_sum)
-                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:(j+1)]) > best_singular_sum:
+                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j]) > best_singular_sum:
                     best_result = temp_result
                     besti = i
                     bestj = j
-                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:(j+1)])
+                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j])
 
     if besti == -1:
         best_core_shape = best_result.core_shape
