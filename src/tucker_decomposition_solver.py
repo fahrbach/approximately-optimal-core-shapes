@@ -7,6 +7,8 @@ import os
 import tensorly
 import tensorly.decomposition
 import time
+import sparse
+from tensorly.contrib.sparse.decomposition import tucker as sparse_tucker
 
 @dataclasses.dataclass
 class TuckerDecompositionSolveResult:
@@ -92,11 +94,18 @@ def compute_tucker_decomposition(X, core_shape, output_path, trial=0):
     solve_result.tol = 1e-20
     solve_result.random_state = trial
     start_time = time.time()
-    core, factors = tensorly.decomposition.tucker(X, rank=core_shape,
-                                                  init=solve_result.init,
-                                                  n_iter_max=solve_result.n_iter_max,
-                                                  tol=solve_result.tol,
-                                                  random_state=solve_result.random_state)
+    if isinstance(X, sparse.COO):
+        core, factors = sparse_tucker(X, rank=core_shape,
+                                      init=solve_result.init,
+                                      n_iter_max=solve_result.n_iter_max,
+                                      tol=solve_result.tol,
+                                      random_state=solve_result.random_state)
+    else:
+        core, factors = tensorly.decomposition.tucker(X, rank=core_shape,
+                                                      init=solve_result.init,
+                                                      n_iter_max=solve_result.n_iter_max,
+                                                      tol=solve_result.tol,
+                                                      random_state=solve_result.random_state)
     end_time = time.time()
     X_hat = tensorly.tucker_to_tensor((core, factors))
     loss = np.linalg.norm(X - X_hat)**2
