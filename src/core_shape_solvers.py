@@ -1,8 +1,6 @@
 from tensor_data_handler import TensorDataHandler
 from tucker_decomposition_solver import *
 from tucker_decomposition_utils import *
-from scipy.optimize import milp
-from scipy.optimize import LinearConstraint
 
 import copy
 import numpy as np
@@ -11,6 +9,8 @@ import tensorly
 import sparse
 import tensorly.decomposition
 import matplotlib.pyplot as plt
+from scipy.optimize import milp
+from scipy.optimize import LinearConstraint
 
 @dataclasses.dataclass
 class CoreShapeSolveResult:
@@ -186,6 +186,7 @@ def get_all_unfolded_squared_singular_values(X):
     """
     N = len(X.shape)
     singular_values = []
+
     for n in range(N):
         if isinstance(X, sparse.COO):
             X_n = sparse_unfold(X, n)
@@ -490,66 +491,26 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
 
     best_result = compute_core_shape_hosvd_brute_force(sparse.zeros(tuple(temp_shape), format='coo'), sq_sing_vals, budget)
     best_singular_sum = best_result.hosvd_prefix_sum
-    besti = -1
-    bestj = -1
 
     for k in range(int(np.floor(np.log(budget)/np.log(1+eps)))):
-        for i in range(N):
-            Xtemp_shape = np.zeros(N-1,dtype=np.int)
-            counter = 0
-            sq_sing_vals = [[] for i in range(len(Xtemp_shape))]
-            for l in range(N):
-                if i == l:
-                    continue
-                Xtemp_shape[counter] = X.shape[l]
-                sq_sing_vals[counter] = unfolded_squared_singular_values[l]
-                counter += 1
-            for j in range(np.maximum(int(np.floor(np.ceil(1/eps) / (1+eps))),1,dtype=int,casting="unsafe"), X.shape[i] + 1):
-                b_prod = np.power(1+eps, k)
-                b_sum = budget - b_prod - X.shape[i] * j
-                b_prod /= j
-
-                temp_result = compute_core_shape_hosvd_ip_double_budget(sparse.zeros(tuple(Xtemp_shape)), sq_sing_vals, b_prod, b_sum)
-                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j]) > best_singular_sum:
-                    best_result = temp_result
-                    besti = i
-                    bestj = j
-                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j])
+        b_prod = np.power(1+eps, k)
+        b_sum = budget - b_prod
+        temp_result = compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_values, b_prod, b_sum)
+        if temp_result.hosvd_prefix_sum > best_singular_sum:
+            best_result = temp_result
+            best_singular_sum = temp_result.hosvd_prefix_sum
 
     for k in range(int(np.floor(np.log(budget)/np.log(1+eps)))):
-        for i in range(N):
-            Xtemp_shape = np.zeros(N-1,dtype=np.int)
-            counter = 0
-            sq_sing_vals = [[] for i in range(len(Xtemp_shape))]
-            for l in range(N):
-                if i == l:
-                    continue
-                Xtemp_shape[counter] = X.shape[l]
-                sq_sing_vals[counter] = unfolded_squared_singular_values[l]
-                counter += 1
-            for j in range(np.maximum(int(np.floor(np.ceil(1/eps) / (1+eps))),1,dtype=int,casting="unsafe"), X.shape[i] + 1):
-                b_prod = (budget - np.power(1+eps, k)) / j
-                b_sum = np.power(1+eps, k) - X.shape[i] * j
+        b_sum = np.power(1+eps, k)
+        b_prod = budget - b_sum
+        temp_result = compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_values, b_prod, b_sum)
+        if temp_result.hosvd_prefix_sum > best_singular_sum:
+            best_result = temp_result
+            best_singular_sum = temp_result.hosvd_prefix_sum
 
-                temp_result = compute_core_shape_hosvd_ip_double_budget(sparse.zeros(tuple(Xtemp_shape)), sq_sing_vals, b_prod, b_sum)
-                if temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j]) > best_singular_sum:
-                    best_result = temp_result
-                    besti = i
-                    bestj = j
-                    best_singular_sum = temp_result.hosvd_prefix_sum + np.sum(unfolded_squared_singular_values[i][:j])
+    best_core_shape = tuple(best_result.core_shape)
 
-    if besti == -1:
-        best_core_shape = best_result.core_shape
-    else:
-        best_core_shape = np.zeros(N,dtype=np.int)
-        best_core_shape[besti] = bestj
-        if besti > 0:
-            best_core_shape[:besti] = best_result.core_shape[:besti]
-        if besti < N - 1:
-            best_core_shape[(besti+1):] = best_result.core_shape[besti:]
-
-    best_core_shape = tuple(best_core_shape)
-    print(budget, '-->', best_singular_sum, best_core_shape)
+    print(budget, '-->', best_singular_sum, tuple(best_core_shape))
 
     end_time = time.time()
 
@@ -662,7 +623,6 @@ def sparse_unfold(X, n):
         mat[row_ind, coords[i, n]] = X.data[i]
 
     return mat
-
 
 """
 Note: Very good experimental setup:
