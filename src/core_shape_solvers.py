@@ -371,7 +371,7 @@ def recurse(X, unfolded_squared_singular_values, budget, core_shape):
     best_core_shape = None
 
     if len(core_shape) == N:
-        print(' - candidate:', core_shape)
+        #print(' - candidate:', core_shape)
         s = 0.0
         for n in range(N):
             s += sum(unfolded_squared_singular_values[n][:core_shape[n]])
@@ -623,48 +623,4 @@ def sparse_unfold(X, n):
         mat[row_ind, coords[i, n]] = X.data[i]
 
     return mat
-
-"""
-Note: Very good experimental setup:
-  - dataset: hyperspectral
-  - budget: ~0.001 * X.size (~0.1% compression of original tensor)
-"""
-def main():
-    handler = TensorDataHandler()
-    input_shape = [20, 100, 200]
-    core_shape = [3, 7, 13]
-    random_seed = 123
-    #X = handler.generate_random_tucker(input_shape, core_shape, random_seed)
-    #X = handler.load_image('data/images/cat.jpg', resize_shape=(100, 200))
-    X = handler.load_hyperspectral()
-    #X = handler.load_cardiac_mri_data()
-    #X = handler.load_coil_100()
-    print(X.shape)
-    print(X.size)
-
-    budget = int(0.0001 * X.size)
-    print('budget:', budget)
-
-    core_shape, rre = compute_core_shape(X, budget, 'greedy-approx')
-    print('greedy_approx_core_shape:', core_shape)
-    print('greedy_approx_rre:', rre)
-    print()
-
-    """
-    core_shape, rre = compute_core_shape(X, budget, 'brute-force-approx')
-    print('brute_force_approx_core_shape:', core_shape)
-    print('brute_force_approx_rre:', rre)
-    print()
-
-    core_shape, rre = compute_core_shape(X, budget, 'greedy')
-    print('greedy_core_shape:', core_shape)
-    print('greedy_rre:', rre)
-    print()
-
-    core_shape, rre = compute_core_shape(X, budget, 'bang-for-buck')
-    print('bfb_core_shape:', core_shape)
-    print('bfb_rre:', rre)
-    """
-
-#main()
 
