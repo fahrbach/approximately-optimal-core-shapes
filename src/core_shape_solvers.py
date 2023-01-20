@@ -365,7 +365,7 @@ def compute_core_shape_hosvd_bang_for_buck(X, unfolded_squared_singular_values, 
     solve_result.hosvd_suffix_sum -= singular_sum
     return solve_result
 
-def recurse(X, unfolded_squared_singular_values, budget, core_shape):
+def recurse(X, unfolded_squared_singular_values, budget, core_shape, max_value):
     N = len(X.shape)
     best_s = -1
     best_core_shape = None
@@ -378,7 +378,10 @@ def recurse(X, unfolded_squared_singular_values, budget, core_shape):
         return s, tuple(core_shape)
 
     n = len(core_shape)
-    for i in range(1, X.shape[n] + 1):
+    max_core_shape_dim = X.shape[n]
+    if max_value != 0:
+      max_core_shape_dim = max_value
+    for i in range(1, max_core_shape_dim + 1):
         new_core_shape = copy.deepcopy(core_shape)
         new_core_shape.append(i)
         new_core_shape_tmp = copy.deepcopy(new_core_shape)
@@ -388,14 +391,15 @@ def recurse(X, unfolded_squared_singular_values, budget, core_shape):
         if num_params > budget:
             break
         # Process good core shape candidate
-        tmp_best_s, tmp_best_core_shape = recurse(X, unfolded_squared_singular_values, budget, new_core_shape)
+        tmp_best_s, tmp_best_core_shape = recurse(X, unfolded_squared_singular_values, budget, new_core_shape, max_value)
         if tmp_best_s > best_s:
             best_s = tmp_best_s
             best_core_shape = tmp_best_core_shape
     return best_s, best_core_shape
 
 # TODO(fahrbach): Write O(B^2) DP algorithm for this packing problem?
-def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, budget):
+# Note: max_value here is the largest dimension any core dimension can take.
+def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, budget, max_value=0):
     """
     Loop over all feasible core shapes and take the best singular sum.
     """
@@ -403,58 +407,10 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
 
     N = len(X.shape)
     core_shape = []
-    best_singular_sum, best_core_shape = recurse(X, unfolded_squared_singular_values, budget, core_shape)
+    best_singular_sum, best_core_shape = recurse(X,
+                                                 unfolded_squared_singular_values,
+                                                 budget, core_shape, max_value)
     print(budget, '-->', best_singular_sum, best_core_shape)
-
-    """
-    N = len(X.shape)
-    best_singular_sum = -1
-    best_core_shape = []
-    if N == 2:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1]) > budget: break
-                s = 0.0
-                s += sum(unfolded_squared_singular_values[0][:i0])
-                s += sum(unfolded_squared_singular_values[1][:i1])
-                if s > best_singular_sum:
-                    best_singular_sum = s
-                    best_core_shape = [i0, i1]
-    elif N == 3:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1, 1]) > budget: break
-                for i2 in range(1, X.shape[2] + 1):
-                    if get_num_tucker_params(X, [i0, i1, i2]) > budget: break
-                    s = 0.0
-                    s += sum(unfolded_squared_singular_values[0][:i0])
-                    s += sum(unfolded_squared_singular_values[1][:i1])
-                    s += sum(unfolded_squared_singular_values[2][:i2])
-                    if s > best_singular_sum:
-                        best_singular_sum = s
-                        best_core_shape = [i0, i1, i2]
-    elif N == 4:
-        for i0 in range(1, X.shape[0] + 1):
-            if get_num_tucker_params(X, [i0, 1, 1, 1]) > budget: break
-            for i1 in range(1, X.shape[1] + 1):
-                if get_num_tucker_params(X, [i0, i1, 1, 1]) > budget: break
-                for i2 in range(1, X.shape[2] + 1):
-                    if get_num_tucker_params(X, [i0, i1, i2, 1]) > budget: break
-                    for i3 in range(1, X.shape[3] + 1):
-                        if get_num_tucker_params(X, [i0, i1, i2, i3]) > budget: break
-                        s = 0.0
-                        s += sum(unfolded_squared_singular_values[0][:i0])
-                        s += sum(unfolded_squared_singular_values[1][:i1])
-                        s += sum(unfolded_squared_singular_values[2][:i2])
-                        s += sum(unfolded_squared_singular_values[3][:i3])
-                        if s > best_singular_sum:
-                            best_singular_sum = s
-                            best_core_shape = [i0, i1, i2, i3]
-    else:
-        assert False
-    """
 
     end_time = time.time()
 
@@ -476,27 +432,27 @@ def compute_core_shape_hosvd_brute_force(X, unfolded_squared_singular_values, bu
     return solve_result
 
 
-def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, eps=1.0):
+def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values, budget, eps=0.5):
     start_time = time.time()
 
     N = len(X.shape)
-
-    temp_shape = np.zeros(N,dtype=np.int)
-
+    max_core_shape_dim = int(np.ceil(1 / eps))
     sq_sing_vals = [[] for i in range(N)]
-
+    temp_shape = [[] for i in range(N)]
     for i in range(N):
-        temp_shape[i] = np.minimum(np.ceil(1/eps),X.shape[i],dtype=np.int,casting="unsafe")
+        temp_shape[i] = np.minimum(np.ceil(1/eps), X.shape[i], dtype=np.int, casting="unsafe")
         sq_sing_vals[i] = unfolded_squared_singular_values[i][:temp_shape[i]]
 
-    best_result = compute_core_shape_hosvd_brute_force(sparse.zeros(tuple(temp_shape), format='coo'), sq_sing_vals, budget)
+    best_result = compute_core_shape_hosvd_brute_force(X, sq_sing_vals, budget, max_value=max_core_shape_dim)
     best_singular_sum = best_result.hosvd_prefix_sum
 
     for k in range(int(np.floor(np.log(budget)/np.log(1+eps)))):
         b_prod = np.power(1+eps, k)
         b_sum = budget - b_prod
         temp_result = compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_values, b_prod, b_sum)
-        if temp_result.hosvd_prefix_sum > best_singular_sum:
+        if temp_result.num_tucker_params == None:
+          continue
+        if temp_result.num_tucker_params <= budget and temp_result.hosvd_prefix_sum > best_singular_sum:
             best_result = temp_result
             best_singular_sum = temp_result.hosvd_prefix_sum
 
@@ -504,12 +460,13 @@ def compute_core_shape_hosvd_integer_program(X, unfolded_squared_singular_values
         b_sum = np.power(1+eps, k)
         b_prod = budget - b_sum
         temp_result = compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_values, b_prod, b_sum)
-        if temp_result.hosvd_prefix_sum > best_singular_sum:
+        if temp_result.num_tucker_params == None:
+          continue
+        if temp_result.num_tucker_params <= budget and temp_result.hosvd_prefix_sum > best_singular_sum:
             best_result = temp_result
             best_singular_sum = temp_result.hosvd_prefix_sum
 
     best_core_shape = tuple(best_result.core_shape)
-
     print(budget, '-->', best_singular_sum, tuple(best_core_shape))
 
     end_time = time.time()
@@ -584,7 +541,7 @@ def compute_core_shape_hosvd_ip_double_budget(X, unfolded_squared_singular_value
 
         col_count += X.shape[i]
 
-    print(budget_prod + budget_sum, '-->', best_singular_sum, tuple(best_core_shape))
+    print(' -', budget_prod + budget_sum, '-->', best_singular_sum, tuple(best_core_shape))
 
     end_time = time.time()
 
