@@ -1,0 +1,12 @@
+date 2023-01-20T17:54:52.768493
+input_shape (1084, 2033, 96)
+algorithm hosvd-ip
+budget 86000
+trial 0
+core_shape (28, 13, 63)
+num_tucker_params 85761
+compression_ratio 0.0004053703150779663
+hosvd_time_seconds 588.7387726306915
+solve_time_seconds 592.0395805835724
+hosvd_prefix_sum 27467343769424.1
+hosvd_suffix_sum 609547184726.3281
